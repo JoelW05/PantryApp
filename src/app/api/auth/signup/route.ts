@@ -37,10 +37,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'User created but ID missing' }, { status: 500 })
   }
 
-  // Create profile rows manually — bypasses the trigger entirely
-  await supabaseAdmin
-    .from('user_profiles')
-    .upsert({ id: userId, email }, { onConflict: 'id' })
+  // Create profile rows — insert into both tables to cover both schema versions
+  await supabaseAdmin.from('profiles').upsert({ id: userId, display_name: null }, { onConflict: 'id' })
+  await supabaseAdmin.from('user_profiles').upsert({ id: userId, email }, { onConflict: 'id' })
 
   await supabaseAdmin
     .from('food_preferences')

@@ -126,7 +126,12 @@ export default function PantryClient({ initialItems, userId }: { initialItems: P
       category: autoCategory(item.name),
     }))
     const { data, error } = await supabase.from('pantry_items').insert(rows).select()
-    if (!error && data) setItems(prev => [...(data as PantryItem[]), ...prev])
+    if (error) {
+      console.error('pantry insert error:', error)
+      alert(`Failed to add items: ${error.message}`)
+      return
+    }
+    if (data) setItems(prev => [...(data as PantryItem[]), ...prev])
     setShowScanner(false)
   }
 
