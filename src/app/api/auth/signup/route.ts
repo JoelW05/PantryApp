@@ -16,14 +16,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Service role key not configured' }, { status: 500 })
   }
 
-  // Client created inside handler so missing env var doesn't crash the module
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
-  // Create user and auto-confirm — no email verification needed
-  const { error } = await supabaseAdmin.auth.admin.createUser({
+  // Create the auth user (auto-confirmed, no email verification)
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -32,6 +31,27 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
+
+  const userId = data.user?.id
+  if (!userId) {
+    return NextResponse.json({ error: 'User created but ID missing' }, { status: 500 })
+  }
+
+  // Create profile rows manually — bypasses the trigger entirely
+  await supabaseAdmin
+    .from('user_profiles')
+    .upsert({ id: userId, email }, { onConflict: 'id' })
+
+  await supabaseAdmin
+    .from('food_preferences')
+    .upsert({
+      user_id: userId,
+      cuisine_types: [],
+      dietary_flags: [],
+      disliked_ingredients: [],
+      max_cook_time_mins: 60,
+      allergens: [],
+    }, { onConflict: 'user_id' })
 
   return NextResponse.json({ success: true })
 }
