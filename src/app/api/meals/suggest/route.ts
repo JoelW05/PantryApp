@@ -38,11 +38,12 @@ export async function GET(request: NextRequest) {
   const today = new Date().toISOString().split('T')[0]
   const { suggestions: sugKey, generatedAt: genAtKey } = typeKeys(mealType)
 
-  const [goalsRes, logsRes, pantryRes, prefsRes] = await Promise.all([
+  const [goalsRes, logsRes, pantryRes, prefsRes, ratingsRes] = await Promise.all([
     supabase.from('nutrition_goals').select('*').eq('user_id', user.id).single(),
     supabase.from('intake_logs').select('*').eq('user_id', user.id).gte('logged_at', `${today}T00:00:00`),
     supabase.from('pantry_items').select('name, expiry_date').eq('user_id', user.id),
     supabase.from('food_preferences').select('*').eq('user_id', user.id).single(),
+    supabase.from('recipe_ratings').select('title, rating').eq('user_id', user.id),
   ])
 
   const goals = goalsRes.data as NutritionGoals | null
@@ -54,6 +55,9 @@ export async function GET(request: NextRequest) {
     .filter((p: { expiry_date?: string | null }) => p.expiry_date && p.expiry_date <= in7days)
     .map((p: { name: string }) => p.name)
   const prefs = prefsRes.data as FoodPreferences | null
+  const ratings = ratingsRes.data ?? []
+  const likedRecipes = ratings.filter((r: any) => r.rating === 1).map((r: any) => r.title as string)
+  const dislikedRecipes = ratings.filter((r: any) => r.rating === -1).map((r: any) => r.title as string)
 
   const cached = prefs?.[sugKey] as AIRecipe[] | null | undefined
   const cachedAt = prefs?.[genAtKey] as string | null | undefined
@@ -83,6 +87,8 @@ export async function GET(request: NextRequest) {
       proteinNeeded: remaining.minProtein ? Math.round(remaining.minProtein * 0.3) : undefined,
       count: 6,
       dismissed,
+      likedRecipes,
+      dislikedRecipes,
     })
 
     const nowIso = new Date().toISOString()

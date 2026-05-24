@@ -100,6 +100,8 @@ interface SuggestOpts {
   count?: number
   dismissed?: string[]
   expiringItems?: string[]
+  likedRecipes?: string[]
+  dislikedRecipes?: string[]
 }
 
 const MEAL_TYPE_CONTEXT: Record<string, string> = {
@@ -125,6 +127,8 @@ export async function suggestMealsWithGemini(opts: SuggestOpts): Promise<AIRecip
     opts.proteinNeeded ? `At least ${Math.round(opts.proteinNeeded * 0.3)}g protein per serving` : null,
     opts.dismissed?.length ? `Do NOT suggest: ${opts.dismissed.join(', ')}` : null,
     opts.expiringItems?.length ? `PRIORITY — use these expiring items in at least half the recipes: ${opts.expiringItems.join(', ')}` : null,
+    opts.likedRecipes?.length ? `User enjoyed these — suggest similar styles: ${opts.likedRecipes.join(', ')}` : null,
+    opts.dislikedRecipes?.length ? `User did NOT enjoy these — avoid similar flavours/ingredients: ${opts.dislikedRecipes.join(', ')}` : null,
   ].filter(Boolean).join('\n')
 
   const prompt = `Suggest ${opts.count ?? 6} varied ${opts.mealType ?? 'meal'} ideas for a home cook using: ${pantryList}.

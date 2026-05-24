@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ShoppingBasket, BarChart2, UtensilsCrossed, Home, Settings, BookOpen, ShoppingCart } from 'lucide-react'
+import { ShoppingBasket, BarChart2, UtensilsCrossed, Home, Settings, BookOpen, ShoppingCart, CalendarDays } from 'lucide-react'
 import LogoutButton from '@/components/LogoutButton'
 
 const nav = [
@@ -7,6 +7,7 @@ const nav = [
   { href: '/pantry', label: 'Pantry', icon: ShoppingBasket },
   { href: '/log', label: "Today's Log", icon: BarChart2 },
   { href: '/meals', label: 'Meal Ideas', icon: UtensilsCrossed },
+  { href: '/plan', label: 'Meal Plan', icon: CalendarDays },
   { href: '/recipes', label: 'Recipes', icon: BookOpen },
   { href: '/shopping', label: 'Shopping List', icon: ShoppingCart },
 ]

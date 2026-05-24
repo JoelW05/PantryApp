@@ -1,11 +1,18 @@
 'use client'
 import { useState } from 'react'
-import { X, Clock, Users, UtensilsCrossed, Bookmark, BookmarkCheck } from 'lucide-react'
+import { X, Clock, Users, UtensilsCrossed, Bookmark, BookmarkCheck, ThumbsUp, ThumbsDown, ShoppingCart, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import PantryDeductionPrompt from '@/components/pantry/PantryDeductionPrompt'
 import type { AIRecipe } from '@/types'
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const
+
+/** Parse "200g pasta" → { quantity: "200g", name: "pasta" } */
+function parseIngredient(raw: string): { name: string; quantity: string } {
+  const m = raw.trim().match(/^([\d./]+\s*(?:g|kg|ml|L|l|tbsp|tsp|cup|cups|oz|lb|cloves?|slices?|pinch|handful|bunch|can|cans|packet|large|medium|small)?)\s+(.+)$/i)
+  if (m) return { quantity: m[1].trim(), name: m[2].trim() }
+  return { quantity: '1', name: raw.trim() }
+}
 const GRADIENTS = [
   'from-orange-400 to-amber-500',
   'from-emerald-400 to-teal-500',
@@ -40,6 +47,8 @@ export default function RecipeModal({
   const [showDeduct, setShowDeduct] = useState(false)
   const [isSaved, setIsSaved] = useState(initialSaved)
   const [saving, setSaving] = useState(false)
+  const [rating, setRating] = useState<1 | -1 | null>(null)
+  const [addedToList, setAddedToList] = useState(false)
 
   const ratio = servings / (recipe.servings || 1)
 
@@ -59,6 +68,29 @@ export default function RecipeModal({
       setLogged(true)
       setShowDeduct(true)
     }
+  }
+
+  async function rateRecipe(r: 1 | -1) {
+    const next = rating === r ? null : r
+    setRating(next)
+    if (next === null) {
+      await supabase.from('recipe_ratings').delete().eq('user_id', userId).eq('recipe_id', recipe.id)
+    } else {
+      await supabase.from('recipe_ratings').upsert(
+        { user_id: userId, recipe_id: recipe.id, title: recipe.title, rating: next },
+        { onConflict: 'user_id,recipe_id' }
+      )
+    }
+  }
+
+  async function addToShoppingList() {
+    const rows = recipe.ingredients.map(ing => {
+      const { name, quantity } = parseIngredient(ing)
+      return { user_id: userId, name, quantity, category: 'Recipe ingredients', checked: false }
+    })
+    await supabase.from('shopping_items').insert(rows)
+    setAddedToList(true)
+    setTimeout(() => setAddedToList(false), 3000)
   }
 
   async function toggleSave() {
@@ -119,10 +151,28 @@ export default function RecipeModal({
             <button onClick={onClose} className="shrink-0 text-gray-400 hover:text-gray-700 mt-0.5"><X size={18} /></button>
           </div>
 
-          {/* Meta */}
-          <div className="flex gap-4 text-sm text-gray-500">
-            <span className="flex items-center gap-1.5"><Clock size={13} />{recipe.readyInMinutes} min</span>
-            <span className="flex items-center gap-1.5"><Users size={13} />{recipe.servings} servings</span>
+          {/* Meta + actions */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex gap-4 text-sm text-gray-500">
+              <span className="flex items-center gap-1.5"><Clock size={13} />{recipe.readyInMinutes} min</span>
+              <span className="flex items-center gap-1.5"><Users size={13} />{recipe.servings} servings</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Rate buttons */}
+              <button onClick={() => rateRecipe(1)} title="I liked this"
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${rating === 1 ? 'bg-emerald-100 border-emerald-300 text-emerald-700' : 'border-gray-200 text-gray-500 hover:border-emerald-300 hover:text-emerald-600'}`}>
+                <ThumbsUp size={12} /> Like
+              </button>
+              <button onClick={() => rateRecipe(-1)} title="Not for me"
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${rating === -1 ? 'bg-red-100 border-red-300 text-red-600' : 'border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500'}`}>
+                <ThumbsDown size={12} /> Dislike
+              </button>
+              {/* Add to shopping list */}
+              <button onClick={addToShoppingList} title="Add ingredients to shopping list"
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${addedToList ? 'bg-emerald-100 border-emerald-300 text-emerald-700' : 'border-gray-200 text-gray-500 hover:border-emerald-300 hover:text-emerald-600'}`}>
+                {addedToList ? <><Check size={12} /> Added!</> : <><ShoppingCart size={12} /> Shopping list</>}
+              </button>
+            </div>
           </div>
 
           {/* Nutrition */}
